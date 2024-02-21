@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "basketball_app"
+version = "0.1.0"
+description = "Streamlit app"
+authors = ["jegesm <david.visontai@ttk.elte.hu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.9.7 || >3.9.7"
+streamlit = "^1.31.0"
+pandas = "^2.2.0"
+plotly = "^5.18.0"
+psycopg2 = "^2.9.9"
+pymssql = "^2.2.11"
+kaleido = "0.2.1"
+vanna = "^0.0.38"
+ipykernel = "^6.29.2"
+streamlit-modal = "^0.1.2"
+streamlit-javascript = "^0.1.5"
+graphviz = "^0.20.1"
+
+[tool.poetry.scripts]
+run_bask_stb = "python -m streamlit run basketball_wstrbacend.py --server.baseUrlPath=$REPORT_URL --server.port=$REPORT_PORT --server.address=0.0.0.0 --server.runOnSave=True --server.allowRunOnSave=True"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
