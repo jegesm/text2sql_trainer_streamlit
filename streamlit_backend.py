@@ -17,7 +17,6 @@ from erd_viewer_mssql_streamlit_module import *
 
 class StreamlitBackend():
 
-
     def __init__(self, **kwargs):
         self.df = None
         if "session" in kwargs:
@@ -26,6 +25,8 @@ class StreamlitBackend():
             self.title = kwargs['title']
         if "graph" in kwargs:
             self.graph = kwargs['graph']
+        if "erd_path" in kwargs:
+            self.erd_path = kwargs['erd_path']
         self.model_name = kwargs['model_name']
         self.token_path = kwargs['token_path']
         self.sql = None
@@ -45,8 +46,6 @@ class StreamlitBackend():
 
     def run_sql(self, sql: str) -> pd.DataFrame:
         return pd.read_sql_query(sql, self.session.connection)
-
-
 
     def check_sql_validity(self, sql: str) -> None:
         try:
@@ -68,6 +67,12 @@ class StreamlitBackend():
         for idx, row in df.iterrows():
             if row['training_data_type'] == "sql":
                 self.vn.train(question=row['question'], sql=row['content'])
+
+    def download_training_data(self) -> None:
+        training_data = self.vn.get_training_data()
+        if training_data.shape[0]:
+            training_data.drop(axis=1, columns=['id'], inplace=True)
+        return training_data.to_csv(index=False)
         
     def run(self):
         # Init Streamlit
@@ -81,34 +86,35 @@ class StreamlitBackend():
             st.title(self.title)
             selected_tab = st.radio("Select a tab", tabs)
             open_modal = st.button(label="Schema Viewer")
+            retrieve_train_data = st.download_button(label="Download Training Data",  
+                    data = self.download_training_data(), 
+                    file_name="training_data.csv", mime="text/csv")
+
             if open_modal:
                 with modal.container():
                     #st.graphviz_chart(self.graph, use_container_width=True)
                     #st.components.v1.html(open("graph.svg", "r").read(), width=800, height=600)
                     #st.image(open("graph.svg", "r").read(), use_column_width='auto')
-                    st.image("graph.png", use_column_width='auto')
+                    st.image(self.erd_path, use_column_width='auto')
                     #st.write("""<figure><embed type="image/svg+xml" src="graph.svg" /></figure>""", unsafe_allow_html=True, use_column_width='auto')
             
     ## Check already existing training data
         if selected_tab == "Retrieve/Modify Training Data":
             col1, col2= st.columns([1,1])
+                
             with col1:
-                st.write("Download training data in csv format")
-                training_data = self.vn.get_training_data()
-                if training_data.shape[0]:
-                    training_data.drop(axis=1, columns=['id'], inplace=True)
-                retrieve_train_data = st.download_button(label="Download",  data = training_data.to_csv(index=False), file_name="training_data.csv", mime="text/csv")
-            with col2:
+                st.write("Upload new training data")
+                file_csv = st.file_uploader(label="",  type=['csv'])
                 append = st.checkbox("Append to current training data?")
-                file_csv = st.file_uploader(label="Upload training data",  type=['csv'])
                 if file_csv is not None:
                     self.upload_training_data(file_csv, append=append)
                     st.success("Training data uploaded successfully!")
                     train_data = self.vn.get_training_data()
                     st.info(f"Training data statistics: {train_data.shape}")
-            with st.form("form0"):
-                rows_to_remove = st.text_input("Enter row numbers to remove (comma-separated)")
-                remove_train_data = st.form_submit_button("Remove row(s) from training data")
+            with col2:
+                with st.form("form_remove_train_data"):
+                    rows_to_remove = st.text_input("Enter row numbers to remove (comma-separated)")
+                    remove_train_data = st.form_submit_button("Remove row(s) from training data")
             
             st.subheader("Retrieve the model's training data")
             train_data = self.vn.get_training_data()
@@ -124,68 +130,56 @@ class StreamlitBackend():
 
 
         elif selected_tab == "Ask/Train":
+            if "generated_sql" not in st.session_state:
+                st.session_state["generated_sql"] = ""
+            gen_sql = st.session_state["generated_sql"]
+            if "question" not in st.session_state:
+                st.session_state["question"] = ""
+            
             st.subheader("Ask new questions to the model")
-            button_add_train_data = None
-            col_add_train_data = None
-            
-            def form_callback():
-                st.session_state.q_inp = st.session_state.q_area
-                self.question = st.session_state.q_inp
-                with out_col2:
-                    with st.spinner('Wait for it...'):
-                        self.sql = self.vn.generate_sql(question=self.question)
-                        st.code(self.sql, language="sql")
-                        st.session_state["generated_sql"] = self.sql
+            print(st.session_state)
 
-                        if not st.session_state.only_sql:
-                            try:
-                                answer = self.vn.run_sql(self.sql)
-                            except DatabaseError as e:
-                                st.error(e)
-                                st.stop()
-                                st.rerun()
-                            st.write(answer)
-                print(self.sql)
-                st.session_state.new_sql = self.sql.replace("\n", " ")
-
-            with st.form("form2"): 
-                if "generated_sql" not in st.session_state:
-                    st.session_state["generated_sql"] = ""
-
-                input_col1, input_col2 = st.columns([1,1])
-                out_col1, out_col2 = st.columns([1,1])
-
-                sql_area = input_col1.text_area("SQL Query", value=st.session_state.generated_sql, key="sql_area")
-                self.sql = input_col1.text_input("", value=st.session_state.sql_area.replace("\n", " "), key='new_sql')
-                q_area = input_col2.text_area("Ask a question", key="q_area")
-                self.question = input_col2.text_input("", value=st.session_state.q_area, key="q_inp", disabled=True)
-                
-                col1, col2= st.columns([1,1])
-                with col1:
-                    input_sql = st.form_submit_button("Submit SQL!", help="Submits a query and returns with a DataFrame.")
-                with col2:
-                    c1, c2, c3 = st.columns([1,1,2])
-                    with c2:
-                        only_sql = st.checkbox("Only SQL!", key="only_sql")
-                    with c1:
-                        ask = st.form_submit_button("Submit question!", help="creates a query and executes it if valid.", on_click=form_callback)
-                    
-                if input_sql:
-                    with out_col1:
-                        with st.spinner('Wait for it...'):
-                            answer = self.vn.run_sql(self.sql)
-                            st.write(answer)
-
-                # if ask:
-                #    this one filled up through a callback
-            
             with st.form("add_to_train_data"):
                 to_train_data = st.form_submit_button("Add to training data")
-                if to_train_data and self.question and self.sql:
-                    self.vn.train(question=self.question, sql=self.sql)
+                print(to_train_data, st.session_state["question"], st.session_state["generated_sql"])
+                if to_train_data and st.session_state["question"] and st.session_state["generated_sql"]:
+                    self.vn.train(question=st.session_state["question"], sql=st.session_state["generated_sql"])
                     st.success("Training data added successfully!")
-                elif not self.question or not self.sql:
-                    st.error("Please enter both a question and an SQL query")
-                    st.stop()
+                elif to_train_data and not (st.session_state["question"] and st.session_state["generated_sql"]):
+                    st.warning("Please enter both a question and an SQL query")
+                    #st.stop()
 
+            with st.form("ask_generate_sql"): 
+
+                def question_callback():
+                    with st.spinner('Wait for it...'):
+                        gen_sql = self.vn.generate_sql(question=st.session_state.question)
+                        st.session_state["generated_sql"] = gen_sql
+                        st.session_state["sql_area"] = gen_sql
+
+                input_col1, input_col2 = st.columns([1,1])
+                with input_col1:
+                    st.session_state.question = st.text_area("Ask a question", key="q_area")
+                    submit_question = st.form_submit_button("Generate SQL!", help="Submits a question to the model and returns with a SQL query.")#, on_click=question_callback)
+                    if submit_question:
+                        with input_col1:
+                            with st.spinner('Wait for it...'):
+                                gen_sql = self.vn.generate_sql(question=st.session_state.question)
+                                st.session_state["generated_sql"] = gen_sql
+
+                with input_col2:
+                    edit_sql = st.text_area("SQL Query Editor", key="sql_area", value=gen_sql)
+                    
+
+                p_code = st.code(st.session_state["generated_sql"], language="sql")
+                submit_sql = st.form_submit_button("Submit SQL!", help="Submits a query to the database server and returns with a DataFrame.")
+
+                
+                            
+                if submit_sql:
+                    with st.spinner('Wait for it...'):
+                            answer = self.vn.run_sql(edit_sql)
+                            st.write(answer)
+            
+            
 

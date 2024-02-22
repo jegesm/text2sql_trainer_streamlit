@@ -27,6 +27,7 @@ model_name = conn_info['model_name']
 
 token_path = "/v/wfct0p/API-tokens/vn_api_key.token"
 
+# Connect to the database
 conn = pymssql.connect(server=conn_info['server'], 
     user=conn_info['user'], 
     password=conn_info['password'], 
@@ -39,12 +40,15 @@ session = Session(database=database_name, connection=conn)
 
 ## Initialize Vanna.ai
 if  not os.path.exists(database_name+"-graph.png"):
+    print("Creating ERD")
     erd = ERDViewer(session=session)
     graph = erd.get_graph()
 
 app = sb.StreamlitBackend(session=session,
     token_path=token_path,
-    model_name=model_name, title=database_name)
+    model_name=model_name, 
+    title=database_name,
+    erd_path=database_name+"-graph.png")
 
 # Add schema
 #if schema_ddl:

@@ -364,7 +364,7 @@ class ERDViewer():
     #         help="Select a schema for the current database")
 
     def save_graph_to_html(self, graph):
-            output_file = 'graph'
+            output_file = f"{self.session.database}-graph"
             #graph.format = 'html'
             graphviz.Source(graph).render(output_file, format='svg')
             graphviz.Source(graph).render(output_file, format='png')
