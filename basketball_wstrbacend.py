@@ -44,7 +44,7 @@ if  not os.path.exists(database_name+"-graph.png"):
     erd = ERDViewer(session=session)
     graph = erd.get_graph()
 
-app = sb.StreamlitBackend(session=session,
+app = sb.run(session=session,
     token_path=token_path,
     model_name=model_name, 
     title=database_name,
@@ -54,4 +54,4 @@ app = sb.StreamlitBackend(session=session,
 #if schema_ddl:
 #    vn.add_ddl(schema_ddl)
 # 
-app.run()
+# app.run()
