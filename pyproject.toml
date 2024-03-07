@@ -18,6 +18,9 @@ ipykernel = "^6.29.2"
 streamlit-modal = "^0.1.2"
 streamlit-javascript = "^0.1.5"
 graphviz = "^0.20.1"
+st-clickable-images = "^0.0.3"
+streamlit-float = "^0.3.2"
+streamlit-code-editor = "^0.1.12"
 
 [tool.poetry.scripts]
 run_bask_stb = "python -m streamlit run basketball_wstrbacend.py --server.baseUrlPath=$REPORT_URL --server.port=$REPORT_PORT --server.address=0.0.0.0 --server.runOnSave=True --server.allowRunOnSave=True"
